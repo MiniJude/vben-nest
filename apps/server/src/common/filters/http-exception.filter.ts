@@ -18,6 +18,31 @@ function isApiResponse(data: any): data is ApiResponse<any> {
   );
 }
 
+function toErrorMessage(exceptionResponse: any, fallback: string): string {
+  if (typeof exceptionResponse === 'string' && exceptionResponse) {
+    return exceptionResponse;
+  }
+  const message = exceptionResponse?.message;
+  if (typeof message === 'string' && message) {
+    return message;
+  }
+  if (Array.isArray(message) && typeof message[0] === 'string' && message[0]) {
+    return message[0];
+  }
+  return fallback;
+}
+
+function toErrorDetail(exceptionResponse: any, fallback: string): string {
+  if (typeof exceptionResponse === 'string' && exceptionResponse) {
+    return exceptionResponse;
+  }
+  const error = exceptionResponse?.error;
+  if (typeof error === 'string' && error) {
+    return error;
+  }
+  return fallback;
+}
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: any, host: ArgumentsHost) {
@@ -33,29 +58,22 @@ export class HttpExceptionFilter implements ExceptionFilter {
         response.status(status).json(exceptionResponse);
         return;
       }
-      let message = exception.message;
-      if (
-        exceptionResponse &&
-        typeof exceptionResponse === 'object' &&
-        'message' in exceptionResponse
-      ) {
-        const responseMessage = (exceptionResponse as any).message;
-        if (Array.isArray(responseMessage)) {
-          message = responseMessage[0];
-        } else if (typeof responseMessage === 'string') {
-          message = responseMessage;
-        }
-      }
+      const message = toErrorMessage(exceptionResponse, exception.message);
+      const error = toErrorDetail(exceptionResponse, message);
       response
         .status(status)
-        .json(ApiResponse.error(message, exceptionResponse, StatusCode.ERROR));
+        .json(ApiResponse.error(message, error, StatusCode.ERROR));
       return;
     }
 
     response
       .status(status)
       .json(
-        ApiResponse.error('Internal Server Error', exception, StatusCode.ERROR),
+        ApiResponse.error(
+          'Internal Server Error',
+          'Internal Server Error',
+          StatusCode.ERROR,
+        ),
       );
   }
 }

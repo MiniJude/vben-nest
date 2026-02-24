@@ -20,10 +20,12 @@
   "main": "dist/main.js",
   "dependencies": {
     "@nestjs/common": "catalog:",
+    "@nestjs/config": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-express": "catalog:",
     "class-transformer": "catalog:",
     "class-validator": "catalog:",
+    "jsonwebtoken": "catalog:",
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:"
   },
@@ -31,6 +33,7 @@
     "@nestjs/cli": "catalog:",
     "@nestjs/schematics": "catalog:",
     "@types/express": "catalog:",
+    "@types/jsonwebtoken": "catalog:",
     "@types/node": "catalog:",
     "ts-node": "catalog:",
     "tsx": "catalog:",

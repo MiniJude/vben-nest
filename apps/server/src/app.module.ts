@@ -1,4 +1,8 @@
+import { resolve } from 'node:path';
+import { cwd, env } from 'node:process';
+
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 
 import { AppController } from './app.controller';
@@ -14,6 +18,14 @@ import { UserModule } from './modules/user/user.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      cache: true,
+      envFilePath: [
+        resolve(cwd(), `apps/server/.env.${env.NODE_ENV || 'development'}`),
+        resolve(cwd(), `.env.${env.NODE_ENV || 'development'}`),
+      ],
+      isGlobal: true,
+    }),
     AuthModule,
     UserModule,
     SystemModule,

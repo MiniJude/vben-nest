@@ -1,3 +1,5 @@
+import { env } from 'node:process';
+
 import { NestApplicationOptions, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { json, urlencoded } from 'express';
@@ -13,13 +15,19 @@ async function bootstrap() {
 
   app.use(json({ strict: false }));
   app.use(urlencoded({ extended: true }));
-  app.enableCors();
+  const corsOrigin = env.CORS_ORIGIN ? env.CORS_ORIGIN.split(',') : true;
+  app.enableCors({
+    origin: corsOrigin,
+    credentials: true,
+  });
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe());
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  await app.listen(3000);
-  console.log(`NestJS server is running on: http://localhost:3000`);
+  const port = Number(env.PORT || 3000);
+  await app.listen(port);
+  // eslint-disable-next-line no-console
+  console.log(`NestJS server is running on: http://localhost:${port}`);
 }
 bootstrap();

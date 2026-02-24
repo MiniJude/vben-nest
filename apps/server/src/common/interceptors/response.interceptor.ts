@@ -7,6 +7,7 @@ import {
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
+import { isRawResponse } from '../decorators/public.decorator';
 import { ApiResponse } from '../dto/response.dto';
 
 function isApiResponse(data: any): data is ApiResponse<any> {
@@ -28,6 +29,12 @@ export class ResponseInterceptor<T> implements NestInterceptor<
     context: ExecutionContext,
     next: CallHandler,
   ): Observable<ApiResponse<T>> {
+    if (
+      isRawResponse(context.getHandler()) ||
+      isRawResponse(context.getClass())
+    ) {
+      return next.handle() as any;
+    }
     return next.handle().pipe(
       map((data) => {
         if (isApiResponse(data)) {
