@@ -13,14 +13,6 @@ packages:
   - docs
   - playground
 
-overrides:
-  '@ast-grep/napi': 'catalog:'
-  '@ctrl/tinycolor': 'catalog:'
-  clsx: 'catalog:'
-  esbuild: 'catalog:'
-  jiti: 'catalog:'
-  pinia: 'catalog:'
-  vue: 'catalog:'
 catalog:
   '@ast-grep/napi': ^0.39.9
   '@changesets/changelog-github': ^0.5.2
@@ -39,6 +31,11 @@ catalog:
   '@intlify/unplugin-vue-i18n': ^6.0.8
   '@jspm/generator': ^2.9.0
   '@manypkg/get-packages': ^3.1.0
+  '@nestjs/cli': ^11.0.16
+  '@nestjs/common': ^11.1.13
+  '@nestjs/core': ^11.1.13
+  '@nestjs/platform-express': ^11.1.13
+  '@nestjs/schematics': ^11.0.9
   '@nolebase/vitepress-plugin-git-changelog': ^2.18.2
   '@playwright/test': ^1.58.2
   '@pnpm/workspace.read-manifest': ^1000.2.10
@@ -49,6 +46,7 @@ catalog:
   '@tanstack/vue-store': ^0.8.0
   '@types/archiver': ^6.0.4
   '@types/eslint': ^9.6.1
+  '@types/express': ^5.0.6
   '@types/html-minifier-terser': ^7.0.2
   '@types/json-bigint': ^1.0.4
   '@types/jsonwebtoken': ^9.0.10
@@ -80,6 +78,8 @@ catalog:
   chalk: ^5.6.2
   cheerio: ^1.2.0
   circular-dependency-scanner: ^2.3.0
+  class-transformer: ^0.5.1
+  class-validator: ^0.14.1
   class-variance-authority: ^0.7.1
   clsx: ^2.1.1
   commitlint-plugin-function-rules: ^4.3.1
@@ -150,11 +150,13 @@ catalog:
   publint: ^0.3.17
   qrcode: ^1.5.4
   qs: ^6.14.1
+  reflect-metadata: ^0.2.2
   reka-ui: ^2.7.0
   resolve.exports: ^2.0.3
   rimraf: ^6.1.2
   rollup: ^4.57.0
   rollup-plugin-visualizer: ^5.14.0
+  rxjs: ^7.8.2
   sass: ^1.97.3
   secure-ls: ^2.0.0
   sortablejs: ^1.15.6
@@ -173,6 +175,8 @@ catalog:
   tdesign-vue-next: ^1.18.0
   theme-colors: ^0.1.0
   tippy.js: ^6.3.7
+  ts-node: ^10.9.2
+  tsx: ^4.21.0
   turbo: ^2.8.3
   typescript: ^5.9.3
   unbuild: ^3.6.1
@@ -201,3 +205,17 @@ catalog:
   yaml-eslint-parser: ^1.3.2
   zod: ^3.25.76
   zod-defaults: 0.1.3
+
+overrides:
+  '@ast-grep/napi': 'catalog:'
+  '@ctrl/tinycolor': 'catalog:'
+  clsx: 'catalog:'
+  esbuild: 'catalog:'
+  jiti: 'catalog:'
+  pinia: 'catalog:'
+  vue: 'catalog:'
+catalogs:
+  conflicts_class-transformer_h0_5_1:
+    class-transformer: ^0.5.1
+  conflicts_class-validator_h0_14_1:
+    class-validator: ^0.14.1
