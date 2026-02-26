@@ -17,13 +17,13 @@ export class RoleController {
 
   @Post()
   async create(@Body() body: Omit<Role, 'id'>) {
-    const result = this.roleService.create(body);
+    const result = await this.roleService.create(body);
     return result;
   }
 
   @Delete(':id')
   async delete(@Param('id') id: string) {
-    const result = this.roleService.delete(Number(id));
+    const result = await this.roleService.delete(Number(id));
     return result;
   }
 
@@ -34,13 +34,13 @@ export class RoleController {
   ) {
     const pageNum = Number(page) || 1;
     const pageSizeNum = Number(pageSize) || 20;
-    const result = this.roleService.getList(pageNum, pageSizeNum);
+    const result = await this.roleService.getList(pageNum, pageSizeNum);
     return result;
   }
 
   @Put(':id')
   async update(@Param('id') id: string, @Body() body: Partial<Role>) {
-    const result = this.roleService.update(Number(id), body);
+    const result = await this.roleService.update(Number(id), body);
     return result;
   }
 }

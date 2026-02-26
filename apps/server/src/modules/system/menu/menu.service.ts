@@ -1,90 +1,154 @@
 import { Injectable } from '@nestjs/common';
 
-import { MenuItem, MOCK_MENU_LIST } from '../../../common/utils/mock-data';
+import { PrismaService } from '../../../common/prisma/prisma.service';
 
 @Injectable()
 export class MenuService {
-  private menuList: MenuItem[] = JSON.parse(JSON.stringify(MOCK_MENU_LIST));
-  private namesMap: Record<string, string> = {};
-  private pathMap: Record<string, string> = { '/': '0' };
+  constructor(private prisma: PrismaService) {}
 
-  constructor() {
-    this.buildMaps();
+  async create(menu: any) {
+    const id =
+      typeof menu?.id === 'number'
+        ? menu.id
+        : ((await this.prisma.menu.aggregate({ _max: { id: true } }))?._max?.id ??
+            0) + 1;
+
+    const created = await this.prisma.menu.create({
+      data: {
+        authCode: menu?.authCode ?? null,
+        component: menu?.component ?? null,
+        icon: menu?.icon ?? null,
+        id,
+        meta: menu?.meta ?? null,
+        name: menu?.name,
+        path: menu?.path ?? null,
+        pid: typeof menu?.pid === 'number' ? menu.pid : 0,
+        status: typeof menu?.status === 'number' ? menu.status : 1,
+        type: menu?.type,
+      },
+    });
+
+    return {
+      ...created,
+      meta: created.meta ?? undefined,
+      pid: created.pid ?? undefined,
+      path: created.path ?? undefined,
+      component: created.component ?? undefined,
+      authCode: created.authCode ?? undefined,
+      icon: created.icon ?? undefined,
+    };
   }
 
-  create(menu: Omit<MenuItem, 'id'>) {
-    const newId = Math.max(...this.getMenuIds(this.menuList)) + 1;
-    const newMenu = { ...menu, id: newId };
-    this.menuList.push(newMenu);
-    this.buildMaps();
-    return newMenu;
-  }
-
-  delete(id: number) {
-    const index = this.menuList.findIndex((m) => m.id === id);
-    if (index !== -1) {
-      const deleted = this.menuList.splice(index, 1)[0];
-      this.buildMaps();
-      return deleted;
+  async delete(id: number) {
+    const menu = await this.prisma.menu.findUnique({ where: { id } });
+    if (!menu) {
+      return null;
     }
-    return null;
+    await this.prisma.menu.delete({ where: { id } });
+    return {
+      ...menu,
+      meta: menu.meta ?? undefined,
+      pid: menu.pid ?? undefined,
+      path: menu.path ?? undefined,
+      component: menu.component ?? undefined,
+      authCode: menu.authCode ?? undefined,
+      icon: menu.icon ?? undefined,
+    };
   }
 
-  getList() {
-    return this.menuList;
-  }
+  async getList() {
+    const rows = await this.prisma.menu.findMany({ orderBy: { id: 'asc' } });
 
-  nameExists(name: string, id?: string): boolean {
-    return name in this.namesMap && (!id || this.namesMap[name] !== String(id));
-  }
-
-  pathExists(path: string, id?: string): boolean {
-    return path in this.pathMap && (!id || this.pathMap[path] !== String(id));
-  }
-
-  update(id: number, menu: Partial<MenuItem>) {
-    const index = this.menuList.findIndex((m) => m.id === id);
-    if (index !== -1) {
-      this.menuList[index] = { ...this.menuList[index], ...menu };
-      this.buildMaps();
-      return this.menuList[index];
+    const nodeById = new Map<number, any>();
+    for (const row of rows) {
+      nodeById.set(row.id, {
+        ...row,
+        authCode: row.authCode ?? undefined,
+        children: [],
+        component: row.component ?? undefined,
+        icon: row.icon ?? undefined,
+        meta: row.meta ?? undefined,
+        path: row.path ?? undefined,
+        pid: row.pid ?? undefined,
+      });
     }
-    return null;
-  }
 
-  private buildMaps() {
-    this.namesMap = {};
-    this.pathMap = { '/': '0' };
-    this.buildNameMap(this.menuList);
-    this.buildPathMap(this.menuList);
-  }
-
-  private buildNameMap(menus: MenuItem[]) {
-    menus.forEach((menu) => {
-      this.namesMap[menu.name] = String(menu.id);
-      if (menu.children && menu.children.length > 0) {
-        this.buildNameMap(menu.children);
+    const roots: any[] = [];
+    for (const row of rows) {
+      const node = nodeById.get(row.id)!;
+      const pid = row.pid ?? 0;
+      if (pid && nodeById.has(pid)) {
+        nodeById.get(pid)!.children.push(node);
+      } else {
+        roots.push(node);
       }
-    });
+    }
+
+    const normalize = (nodes: any[]): any[] =>
+      nodes.map((n) => {
+        const children = normalize(n.children);
+        if (children.length === 0) {
+          const { children: _children, ...rest } = n;
+          return rest;
+        }
+        return { ...n, children };
+      });
+
+    return normalize(roots);
   }
 
-  private buildPathMap(menus: MenuItem[]) {
-    menus.forEach((menu) => {
-      this.pathMap[menu.path] = String(menu.id);
-      if (menu.children && menu.children.length > 0) {
-        this.buildPathMap(menu.children);
-      }
+  async nameExists(name: string, id?: string): Promise<boolean> {
+    const existing = await this.prisma.menu.findFirst({
+      where: {
+        id: id ? { not: Number(id) } : undefined,
+        name,
+      },
+      select: { id: true },
     });
+    return Boolean(existing);
   }
 
-  private getMenuIds(menus: MenuItem[]): number[] {
-    const ids: number[] = [];
-    menus.forEach((item) => {
-      ids.push(item.id);
-      if (item.children && item.children.length > 0) {
-        ids.push(...this.getMenuIds(item.children));
-      }
+  async pathExists(path: string, id?: string): Promise<boolean> {
+    if (!path) {
+      return false;
+    }
+    const existing = await this.prisma.menu.findFirst({
+      where: {
+        id: id ? { not: Number(id) } : undefined,
+        path,
+      },
+      select: { id: true },
     });
-    return ids;
+    return Boolean(existing);
+  }
+
+  async update(id: number, menu: any) {
+    const existing = await this.prisma.menu.findUnique({ where: { id } });
+    if (!existing) {
+      return null;
+    }
+    const updated = await this.prisma.menu.update({
+      data: {
+        authCode: menu?.authCode ?? undefined,
+        component: menu?.component ?? undefined,
+        icon: menu?.icon ?? undefined,
+        meta: menu?.meta ?? undefined,
+        name: menu?.name ?? undefined,
+        path: menu?.path ?? undefined,
+        pid: typeof menu?.pid === 'number' ? menu.pid : undefined,
+        status: typeof menu?.status === 'number' ? menu.status : undefined,
+        type: menu?.type ?? undefined,
+      },
+      where: { id },
+    });
+    return {
+      ...updated,
+      meta: updated.meta ?? undefined,
+      pid: updated.pid ?? undefined,
+      path: updated.path ?? undefined,
+      component: updated.component ?? undefined,
+      authCode: updated.authCode ?? undefined,
+      icon: updated.icon ?? undefined,
+    };
   }
 }

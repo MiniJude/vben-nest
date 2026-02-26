@@ -8,6 +8,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthGuard } from './common/guards/auth.guard';
+import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DemoModule } from './modules/demo/demo.module';
 import { SystemModule } from './modules/system/system.module';
@@ -26,6 +27,7 @@ import { UserModule } from './modules/user/user.module';
       ],
       isGlobal: true,
     }),
+    PrismaModule,
     AuthModule,
     UserModule,
     SystemModule,

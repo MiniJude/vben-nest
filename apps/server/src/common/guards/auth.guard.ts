@@ -7,13 +7,17 @@ import {
 import { Reflector } from '@nestjs/core';
 
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import { verifyAccessToken } from '../utils/jwt.util';
+import { PrismaService } from '../prisma/prisma.service';
+import { decodeAccessToken } from '../utils/jwt.util';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private reflector: Reflector,
+    private prisma: PrismaService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -24,13 +28,34 @@ export class AuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const userinfo = verifyAccessToken(request);
+    const payload = decodeAccessToken(request);
 
-    if (!userinfo) {
+    if (!payload) {
       throw new UnauthorizedException('Unauthorized Exception');
     }
 
-    request.user = userinfo;
+    const user = await this.prisma.user.findUnique({
+      where: { username: payload.username },
+      select: {
+        id: true,
+        homePath: true,
+        realName: true,
+        username: true,
+        roles: { select: { role: { select: { code: true } } } },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Unauthorized Exception');
+    }
+
+    request.user = {
+      id: user.id,
+      homePath: user.homePath ?? undefined,
+      realName: user.realName,
+      roles: user.roles.map((r) => r.role.code),
+      username: user.username,
+    };
     return true;
   }
 }

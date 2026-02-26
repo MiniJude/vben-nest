@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MenuType {
+  button
+  catalog
+  embedded
+  link
+  menu
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  passwordHash String
+  realName     String
+  homePath     String?
+  status       Int       @default(1)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  roles           UserRole[]
+  permissionCodes UserPermissionCode[]
+  refreshToken    RefreshToken?
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  status      Int      @default(1)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users UserRole[]
+}
+
+model UserRole {
+  userId Int
+  roleId Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RefreshToken {
+  userId    Int      @id
+  tokenHash String
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserPermissionCode {
+  id     Int    @id @default(autoincrement())
+  userId Int
+  code   String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, code])
+}
+
+model Dept {
+  id        Int      @id @default(autoincrement())
+  pid       Int      @default(0)
+  name      String
+  status    Int      @default(1)
+  meta      Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pid])
+}
+
+model Menu {
+  id        Int      @id
+  pid       Int      @default(0)
+  name      String
+  path      String?
+  component String?
+  status    Int      @default(1)
+  type      MenuType
+  authCode  String?
+  icon      String?
+  meta      Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pid])
+  @@index([name])
+  @@index([path])
+}

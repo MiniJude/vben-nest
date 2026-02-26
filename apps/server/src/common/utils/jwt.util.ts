@@ -3,10 +3,6 @@ import { env } from 'node:process';
 import { Request } from 'express';
 import jwt from 'jsonwebtoken';
 
-import { MOCK_USERS, UserInfo } from './mock-data';
-
-type SafeUserInfo = Omit<UserInfo, 'password'>;
-
 interface UserTokenPayload {
   username: string;
 }
@@ -41,30 +37,19 @@ function getRefreshTokenExpiresIn(): jwt.SignOptions['expiresIn'] {
   return (env.JWT_REFRESH_EXPIRES_IN as any) || '7d';
 }
 
-function findSafeUser(username: string): null | SafeUserInfo {
-  const user = MOCK_USERS.find((item) => item.username === username);
-  if (!user) {
-    return null;
-  }
-  const { password: _password, ...safeUser } = user;
-  return safeUser;
-}
-
-export function generateAccessToken(user: UserInfo): string {
-  const payload: UserTokenPayload = { username: user.username };
+export function generateAccessToken(payload: UserTokenPayload): string {
   return jwt.sign(payload, getAccessTokenSecret(), {
     expiresIn: getAccessTokenExpiresIn(),
   });
 }
 
-export function generateRefreshToken(user: UserInfo): string {
-  const payload: UserTokenPayload = { username: user.username };
+export function generateRefreshToken(payload: UserTokenPayload): string {
   return jwt.sign(payload, getRefreshTokenSecret(), {
     expiresIn: getRefreshTokenExpiresIn(),
   });
 }
 
-export function verifyAccessToken(req: Request): null | SafeUserInfo {
+export function decodeAccessToken(req: Request): null | UserTokenPayload {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
@@ -77,13 +62,13 @@ export function verifyAccessToken(req: Request): null | SafeUserInfo {
     if (typeof username !== 'string' || !username) {
       return null;
     }
-    return findSafeUser(username);
+    return { username };
   } catch {
     return null;
   }
 }
 
-export function verifyRefreshToken(token: string): null | SafeUserInfo {
+export function decodeRefreshToken(token: string): null | UserTokenPayload {
   try {
     const decoded = jwt.verify(
       token,
@@ -93,7 +78,7 @@ export function verifyRefreshToken(token: string): null | SafeUserInfo {
     if (typeof username !== 'string' || !username) {
       return null;
     }
-    return findSafeUser(username);
+    return { username };
   } catch {
     return null;
   }

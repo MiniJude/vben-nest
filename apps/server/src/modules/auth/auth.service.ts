@@ -1,55 +1,61 @@
 import { createHash } from 'node:crypto';
+import { env } from 'node:process';
 
 import { Injectable } from '@nestjs/common';
 
 import {
   generateAccessToken,
   generateRefreshToken,
-  verifyRefreshToken,
+  decodeRefreshToken,
 } from '../../common/utils/jwt.util';
-import { MOCK_CODES, MOCK_USERS, UserInfo } from '../../common/utils/mock-data';
+import { PrismaService } from '../../common/prisma/prisma.service';
 import { forbiddenResponse } from '../../common/utils/response.util';
 import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
-  private codes = [...MOCK_CODES];
-  private refreshTokenHashByUsername = new Map<string, string>();
-  private users = [...MOCK_USERS];
+  constructor(private prisma: PrismaService) {}
 
   async getCodes(username: string) {
-    const findCodes = this.codes.find((item) => item.username === username);
-
-    if (!findCodes) {
-      return [];
-    }
-
-    return findCodes.codes;
-  }
-
-  getUserByUsername(username: string): undefined | UserInfo {
-    return this.users.find((item) => item.username === username);
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+      select: { permissionCodes: { select: { code: true } } },
+    });
+    return user?.permissionCodes?.map((c) => c.code) ?? [];
   }
 
   async login(loginDto: LoginDto) {
     const { username, password } = loginDto;
-    const findUser = this.users.find(
-      (item) => item.username === username && item.password === password,
-    );
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+      select: {
+        homePath: true,
+        id: true,
+        passwordHash: true,
+        realName: true,
+        roles: { select: { role: { select: { code: true } } } },
+        username: true,
+      },
+    });
 
-    if (!findUser) {
+    if (!user || user.passwordHash !== this.hashPassword(password)) {
       forbiddenResponse();
     }
 
-    const accessToken = generateAccessToken(findUser);
-    const refreshToken = generateRefreshToken(findUser);
-    this.refreshTokenHashByUsername.set(
-      findUser.username,
-      this.hashToken(refreshToken),
-    );
+    const accessToken = generateAccessToken({ username: user.username });
+    const refreshToken = generateRefreshToken({ username: user.username });
+    await this.prisma.refreshToken.upsert({
+      create: { tokenHash: this.hashToken(refreshToken), userId: user.id },
+      update: { tokenHash: this.hashToken(refreshToken) },
+      where: { userId: user.id },
+    });
 
     return {
-      ...this.sanitizeUser(findUser),
+      homePath: user.homePath ?? undefined,
+      id: user.id,
+      realName: user.realName,
+      roles: user.roles.map((r) => r.role.code),
+      username: user.username,
       accessToken,
       refreshToken,
     };
@@ -57,42 +63,66 @@ export class AuthService {
 
   async logout(refreshToken?: string) {
     if (refreshToken) {
-      const user = verifyRefreshToken(refreshToken);
-      if (user?.username) {
-        this.refreshTokenHashByUsername.delete(user.username);
+      const payload = decodeRefreshToken(refreshToken);
+      if (payload?.username) {
+        const user = await this.prisma.user.findUnique({
+          where: { username: payload.username },
+          select: { id: true },
+        });
+        if (user) {
+          await this.prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+        }
       }
     }
     return { message: 'ok' };
   }
 
   async refresh(refreshToken: string) {
-    const user = verifyRefreshToken(refreshToken);
+    const payload = decodeRefreshToken(refreshToken);
 
-    if (!user) {
+    if (!payload) {
       forbiddenResponse('Invalid refresh token');
     }
 
-    const findUser = this.users.find((item) => item.username === user.username);
+    const user = await this.prisma.user.findUnique({
+      where: { username: payload.username },
+      select: {
+        homePath: true,
+        id: true,
+        realName: true,
+        roles: { select: { role: { select: { code: true } } } },
+        username: true,
+      },
+    });
 
-    if (!findUser) {
+    if (!user) {
       forbiddenResponse('User not found');
     }
 
-    const expectedHash = this.refreshTokenHashByUsername.get(findUser.username);
-    if (!expectedHash || expectedHash !== this.hashToken(refreshToken)) {
-      this.refreshTokenHashByUsername.delete(findUser.username);
+    const stored = await this.prisma.refreshToken.findUnique({
+      where: { userId: user.id },
+      select: { tokenHash: true },
+    });
+
+    if (!stored || stored.tokenHash !== this.hashToken(refreshToken)) {
+      await this.prisma.refreshToken.deleteMany({ where: { userId: user.id } });
       forbiddenResponse('Invalid refresh token');
     }
 
-    const accessToken = generateAccessToken(findUser);
-    const newRefreshToken = generateRefreshToken(findUser);
-    this.refreshTokenHashByUsername.set(
-      findUser.username,
-      this.hashToken(newRefreshToken),
-    );
+    const accessToken = generateAccessToken({ username: user.username });
+    const newRefreshToken = generateRefreshToken({ username: user.username });
+    await this.prisma.refreshToken.upsert({
+      create: { tokenHash: this.hashToken(newRefreshToken), userId: user.id },
+      update: { tokenHash: this.hashToken(newRefreshToken) },
+      where: { userId: user.id },
+    });
 
     return {
-      ...this.sanitizeUser(findUser),
+      homePath: user.homePath ?? undefined,
+      id: user.id,
+      realName: user.realName,
+      roles: user.roles.map((r) => r.role.code),
+      username: user.username,
       accessToken,
       refreshToken: newRefreshToken,
     };
@@ -102,8 +132,14 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private sanitizeUser(user: UserInfo) {
-    const { password: _password, ...safeUser } = user;
-    return safeUser;
+  private hashPassword(password: string) {
+    const salt = env.PASSWORD_SALT;
+    if (!salt) {
+      if (env.NODE_ENV === 'production') {
+        throw new Error('PASSWORD_SALT is required in production');
+      }
+      return createHash('sha256').update(`dev_password_salt:${password}`).digest('hex');
+    }
+    return createHash('sha256').update(`${salt}:${password}`).digest('hex');
   }
 }

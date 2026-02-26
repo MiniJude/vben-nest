@@ -1,12 +1,31 @@
 import { Injectable } from '@nestjs/common';
 
-import { MOCK_USERS, UserInfo } from '../../common/utils/mock-data';
+import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
 export class UserService {
-  private users = [...MOCK_USERS];
+  constructor(private prisma: PrismaService) {}
 
-  getInfo(username: string): undefined | UserInfo {
-    return this.users.find((item) => item.username === username);
+  async getInfo(username: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+      select: {
+        homePath: true,
+        id: true,
+        realName: true,
+        roles: { select: { role: { select: { code: true } } } },
+        username: true,
+      },
+    });
+    if (!user) {
+      return undefined;
+    }
+    return {
+      homePath: user.homePath ?? undefined,
+      id: user.id,
+      realName: user.realName,
+      roles: user.roles.map((r) => r.role.code),
+      username: user.username,
+    };
   }
 }

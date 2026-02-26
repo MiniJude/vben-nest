@@ -10,7 +10,12 @@
   "license": "MIT",
   "author": "",
   "scripts": {
-    "build": "nest build",
+    "build": "pnpm exec prisma generate && nest build",
+    "db:deploy": "pnpm exec prisma migrate deploy && pnpm exec prisma generate",
+    "db:init": "pnpm exec prisma migrate deploy && pnpm exec prisma generate && pnpm exec prisma db seed",
+    "db:migrate": "pnpm exec prisma migrate dev && pnpm exec prisma generate",
+    "db:seed": "pnpm exec prisma db seed",
+    "prisma": "pnpm exec prisma",
     "start": "nest start",
     "dev": "nest start --debug --watch",
     "start:dev": "nest start --watch",
@@ -18,11 +23,15 @@
     "start:prod": "node dist/main"
   },
   "main": "dist/main.js",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "dependencies": {
     "@nestjs/common": "catalog:",
     "@nestjs/config": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-express": "catalog:",
+    "@prisma/client": "catalog:",
     "class-transformer": "catalog:",
     "class-validator": "catalog:",
     "jsonwebtoken": "catalog:",
@@ -35,6 +44,7 @@
     "@types/express": "catalog:",
     "@types/jsonwebtoken": "catalog:",
     "@types/node": "catalog:",
+    "prisma": "catalog:",
     "ts-node": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:"

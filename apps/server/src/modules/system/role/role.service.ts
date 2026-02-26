@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
+import { PrismaService } from '../../../common/prisma/prisma.service';
+
 export interface Role {
   id: number;
   name: string;
@@ -10,64 +12,64 @@ export interface Role {
 
 @Injectable()
 export class RoleService {
-  private roleList: Role[] = [
-    {
-      id: 1,
-      name: '超级管理员',
-      code: 'super',
-      status: 1,
-      description: '拥有所有权限',
-    },
-    {
-      id: 2,
-      name: '管理员',
-      code: 'admin',
-      status: 1,
-      description: '拥有大部分权限',
-    },
-    {
-      id: 3,
-      name: '普通用户',
-      code: 'user',
-      status: 1,
-      description: '普通用户权限',
-    },
-  ];
+  constructor(private prisma: PrismaService) {}
 
-  create(role: Omit<Role, 'id'>) {
-    const newId = Math.max(...this.roleList.map((r) => r.id)) + 1;
-    const newRole = { ...role, id: newId };
-    this.roleList.push(newRole);
-    return newRole;
+  async create(role: Omit<Role, 'id'>) {
+    return await this.prisma.role.create({
+      data: {
+        code: role.code,
+        description: role.description ?? null,
+        name: role.name,
+        status: role.status,
+      },
+      select: {
+        code: true,
+        description: true,
+        id: true,
+        name: true,
+        status: true,
+      },
+    });
   }
 
-  delete(id: number) {
-    const index = this.roleList.findIndex((r) => r.id === id);
-    if (index !== -1) {
-      const deleted = this.roleList.splice(index, 1)[0];
-      return deleted;
+  async delete(id: number) {
+    const existing = await this.prisma.role.findUnique({ where: { id } });
+    if (!existing) {
+      return null;
     }
-    return null;
+    await this.prisma.role.delete({ where: { id } });
+    return existing;
   }
 
-  getList(page: number = 1, pageSize: number = 20) {
+  async getList(page: number = 1, pageSize: number = 20) {
     const offset = (page - 1) * pageSize;
-    const items =
-      offset + pageSize >= this.roleList.length
-        ? this.roleList.slice(offset)
-        : this.roleList.slice(offset, offset + pageSize);
+    const [items, total] = await Promise.all([
+      this.prisma.role.findMany({
+        orderBy: { id: 'asc' },
+        skip: offset,
+        take: pageSize,
+      }),
+      this.prisma.role.count(),
+    ]);
     return {
       items,
-      total: this.roleList.length,
+      total,
     };
   }
 
-  update(id: number, role: Partial<Role>) {
-    const index = this.roleList.findIndex((r) => r.id === id);
-    if (index !== -1) {
-      this.roleList[index] = { ...this.roleList[index], ...role };
-      return this.roleList[index];
+  async update(id: number, role: Partial<Role>) {
+    const existing = await this.prisma.role.findUnique({ where: { id } });
+    if (!existing) {
+      return null;
     }
-    return null;
+    return await this.prisma.role.update({
+      data: {
+        code: role.code ?? undefined,
+        description: role.description ?? undefined,
+        name: role.name ?? undefined,
+        status: role.status ?? undefined,
+      },
+      where: { id },
+    });
   }
 }

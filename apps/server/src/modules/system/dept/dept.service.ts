@@ -1,78 +1,67 @@
 import { Injectable } from '@nestjs/common';
 
-import { MenuItem } from '../../../common/utils/mock-data';
+import { PrismaService } from '../../../common/prisma/prisma.service';
 
 @Injectable()
 export class DeptService {
-  private deptList: MenuItem[] = [
-    {
-      id: 1,
-      name: '总公司',
-      pid: 0,
-      status: 1,
-      type: 'menu',
-      meta: { title: '总公司' },
-    },
-    {
-      id: 2,
-      name: '技术部',
-      pid: 1,
-      status: 1,
-      type: 'menu',
-      meta: { title: '技术部' },
-    },
-    {
-      id: 3,
-      name: '市场部',
-      pid: 1,
-      status: 1,
-      type: 'menu',
-      meta: { title: '市场部' },
-    },
-    {
-      id: 4,
-      name: '前端组',
-      pid: 2,
-      status: 1,
-      type: 'menu',
-      meta: { title: '前端组' },
-    },
-    {
-      id: 5,
-      name: '后端组',
-      pid: 2,
-      status: 1,
-      type: 'menu',
-      meta: { title: '后端组' },
-    },
-  ];
+  constructor(private prisma: PrismaService) {}
 
-  create(dept: Omit<MenuItem, 'id'>) {
-    const newId = Math.max(...this.deptList.map((d) => d.id)) + 1;
-    const newDept = { ...dept, id: newId };
-    this.deptList.push(newDept);
-    return newDept;
+  async create(dept: any) {
+    const created = await this.prisma.dept.create({
+      data: {
+        meta: dept?.meta ?? null,
+        name: dept?.name,
+        pid: typeof dept?.pid === 'number' ? dept.pid : 0,
+        status: typeof dept?.status === 'number' ? dept.status : 1,
+      },
+    });
+    return {
+      ...created,
+      meta: created.meta ?? undefined,
+      type: 'menu',
+    };
   }
 
-  delete(id: number) {
-    const index = this.deptList.findIndex((d) => d.id === id);
-    if (index !== -1) {
-      const deleted = this.deptList.splice(index, 1)[0];
-      return deleted;
+  async delete(id: number) {
+    const dept = await this.prisma.dept.findUnique({ where: { id } });
+    if (!dept) {
+      return null;
     }
-    return null;
+    await this.prisma.dept.delete({ where: { id } });
+    return {
+      ...dept,
+      meta: dept.meta ?? undefined,
+      type: 'menu',
+    };
   }
 
-  getList() {
-    return this.deptList;
+  async getList() {
+    const list = await this.prisma.dept.findMany({ orderBy: { id: 'asc' } });
+    return list.map((d) => ({
+      ...d,
+      meta: d.meta ?? undefined,
+      type: 'menu',
+    }));
   }
 
-  update(id: number, dept: Partial<MenuItem>) {
-    const index = this.deptList.findIndex((d) => d.id === id);
-    if (index !== -1) {
-      this.deptList[index] = { ...this.deptList[index], ...dept };
-      return this.deptList[index];
+  async update(id: number, dept: any) {
+    const existing = await this.prisma.dept.findUnique({ where: { id } });
+    if (!existing) {
+      return null;
     }
-    return null;
+    const updated = await this.prisma.dept.update({
+      data: {
+        meta: dept?.meta ?? undefined,
+        name: dept?.name ?? undefined,
+        pid: typeof dept?.pid === 'number' ? dept.pid : undefined,
+        status: typeof dept?.status === 'number' ? dept.status : undefined,
+      },
+      where: { id },
+    });
+    return {
+      ...updated,
+      meta: updated.meta ?? undefined,
+      type: 'menu',
+    };
   }
 }
