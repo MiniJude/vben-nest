@@ -23,9 +23,6 @@
     "start:prod": "node dist/main"
   },
   "main": "dist/main.js",
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "dependencies": {
     "@nestjs/common": "catalog:",
     "@nestjs/config": "catalog:",
